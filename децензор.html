@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Децензор | Universal</title>
+    <link id="favicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><path fill='%2338bdf8' d='M256 32C114.6 32 0 125.1 0 240c0 47.6 19.9 91.2 52.9 126.3C38 405.7 7 437 6.5 437.7c-7.2 10.4-5.6 24.6 3.7 33.1s23.1 9.9 31.9 2.1c21.7-19.3 66.2-54.9 90.7-76.3 38.2 13.9 79.6 21.4 123.2 21.4C397.4 418 512 338.3 512 240c0-114.9-114.6-208-256-208zm-80 144c26.5 0 48 21.5 48 48s-21.5 48-48 48-48-21.5-48-48 21.5-48 48-48zm160 0c26.5 0 48 21.5 48 48s-21.5 48-48 48-48-21.5-48-48 21.5-48 48-48z'/></svg>">
+    <style>
+        :root {
+            --bg-color: #0b1120;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-color: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.35);
+            --border-color: #334155;
+            --danger-color: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.4);
+            --success-color: #10b981;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+        }
+
+        body.combat-active {
+            --accent-color: #ef4444;
+            --accent-glow: var(--danger-glow);
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-family);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        header {
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            margin: 0 0 6px 0;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            margin: 0;
+            font-size: 0.95rem;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px 18px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #0f172a;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .toggle-btn:hover {
+            border-color: var(--accent-color);
+        }
+
+        .toggle-btn.active {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #fff;
+            box-shadow: 0 0 14px var(--accent-glow);
+        }
+
+        .status-info {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            box-shadow: 0 0 8px var(--accent-color);
+        }
+
+        .editor-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+		@media (max-width: 768px) {
+            body {
+                min-height: 100dvh; /* чесна висота з урахуванням адресного рядка */
+                height: 100dvh;
+                overflow: hidden;   /* намертво блокує скрол сторінки в порожнечу */
+                padding: 10px;
+            }
+
+            .container {
+                gap: 8px;
+            }
+
+            .editor-wrapper {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            textarea {
+                height: 18dvh !important;
+            }
+        }
+
+        .editor-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 10px 14px;
+            background-color: rgba(15, 23, 42, 0.4);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-header label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn-action {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 5px 9px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .btn-action:hover {
+            color: var(--text-color);
+            border-color: var(--text-muted);
+        }
+
+        .btn-action.copied {
+            background-color: var(--success-color);
+            border-color: var(--success-color);
+            color: #fff;
+        }
+
+        textarea {
+            width: 100%;
+            height: 420px;
+            background: transparent;
+            border: none;
+            padding: 16px;
+            color: var(--text-color);
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            line-height: 1.55;
+            resize: vertical;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        textarea:focus {
+            box-shadow: inset 0 0 0 1px var(--accent-color);
+        }
+
+        .card-footer {
+            padding: 8px 14px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-top: 1px solid rgba(51, 65, 85, 0.4);
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>🛡️ Децензор <span style="font-size: 0.55em; opacity: 0.7;">Універсальний Маскувальник</span></h1>
+            <p class="subtitle">Універсальний трансгліф: вставляй будь-яку мову в будь-яке поле</p>
+        </header>
+
+        <div class="toolbar">
+            <button class="toggle-btn" id="btn-toggle">
+                <span>⚔️ Бойовий режим</span>
+                <span id="mode-text">(ВИМК)</span>
+            </button>
+            <div class="status-info">
+                <span class="status-dot"></span>
+                <span id="mode-desc">Стелс: 100% ідентичні символи</span>
+            </div>
+        </div>
+
+        <div class="editor-wrapper">
+            <!-- БУФЕР 1 -->
+            <div class="editor-card">
+                <div class="card-header">
+                    <label for="area-1">Буфер 1 (Ввід / Результат)</label>
+                    <div class="card-actions">
+                        <button class="btn-action" id="clear-1">Очистити</button>
+                        <button class="btn-action" id="copy-1">Копіювати</button>
+                    </div>
+                </div>
+                <textarea id="area-1" placeholder="Введіть або вставте сюди будь-який текст (українська, англійська чи мікс)..."></textarea>
+                <div class="card-footer">
+                    <span>Символів: <span id="count-1">0</span></span>
+                    <span>Буфер A</span>
+                </div>
+            </div>
+
+            <!-- БУФЕР 2 -->
+            <div class="editor-card">
+                <div class="card-header">
+                    <label for="area-2">Буфер 2 (Ввід / Результат)</label>
+                    <div class="card-actions">
+                        <button class="btn-action" id="clear-2">Очистити</button>
+                        <button class="btn-action" id="copy-2">Копіювати</button>
+                    </div>
+                </div>
+                <textarea id="area-2" placeholder="Або введіть / вставте текст сюди (результат з'явиться в Буфері 1)..."></textarea>
+                <div class="card-footer">
+                    <span>Символів: <span id="count-2">0</span></span>
+                    <span>Буфер B</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================
+        // 1. СТЕЛС-МАТРИЦЯ (100% візуально ідентичні близнюки)
+        // Працює однаково і для кирилиці, і для латинки.
+        // Літери k/K та к/К навмисно виключені.
+        // ========================================================
+        const STEALTH_MAP = {
+            // Кирилиця -> Латиниця
+            'а': 'a', 'А': 'A',
+            'е': 'e', 'Е': 'E',
+            'і': 'i', 'І': 'I',
+            'о': 'o', 'О': 'O',
+            'р': 'p', 'Р': 'P',
+            'с': 'c', 'С': 'C',
+            'у': 'y',
+            'х': 'x', 'Х': 'X',
+            'В': 'B',
+            'Н': 'H',
+            'М': 'M',
+            'Т': 'T',
+
+            // Латиниця -> Кирилиця (також ідентичні гліфи)
+            'a': 'а', 'A': 'А',
+            'c': 'с', 'C': 'С',
+            'e': 'е', 'E': 'Е',
+            'i': 'і', 'I': 'І',
+            'j': 'ј', 'J': 'Ј', // кириличне "є/йе" (U+0458/U+0408)
+            'o': 'о', 'O': 'О',
+            'p': 'р', 'P': 'Р',
+            's': 'ѕ', 'S': 'Ѕ', // кириличне "дзе" (U+0455/U+0405)
+            'x': 'х', 'X': 'Х',
+            'y': 'у',
+            'B': 'В',
+            'H': 'Н',
+            'M': 'М',
+            'T': 'Т'
+        };
+
+        // ========================================================
+        // 2. БОЙОВА МАТРИЦЯ (Абсолютне маскування / Усі скрипти)
+        // Включає k/к, грецькі, математичні, leet та коптські аналоги
+        // ========================================================
+        const COMBAT_MAP = {
+            ...STEALTH_MAP,
+
+            // k / к тепер включено!
+            'к': 'k', 'К': 'K',
+            'k': 'к', 'K': 'К',
+
+            // --- КИРИЛИЦЯ: Глибока заміна ---
+            'а': 'α',
+            'б': '6', 'Б': 'Ƃ',
+            'в': 'β', 'В': 'ß',
+            'г': 'Γ', 'Г': 'Γ',
+            'д': 'ⲇ', 'Д': 'Δ',
+            'е': 'ε',
+            'є': '∈', 'Є': '∈',
+            'з': 'ӡ', 'З': '3',
+            'и': 'μ', 'И': 'U',
+            'і': 'ı',
+            'ї': 'ï', 'Ї': 'Ï',
+            'й': 'ҋ', 'Й': 'Й',
+            'л': 'λ', 'Л': 'Λ',
+            'м': 'ʍ', 'М': 'M',
+            'н': 'ӈ', 'Н': 'H',
+            'о': 'ѻ',
+            'п': 'π', 'П': 'Π',
+            'р': 'ρ',
+            'с': 'ς',
+            'т': 'τ',
+            'у': 'y', 'У': 'Y',
+            'ф': 'ɸ', 'Ф': 'Φ',
+            'х': 'χ',
+            'ч': '4', 'Ч': '4',
+            'ш': 'ɯ', 'Ш': 'Ш',
+            'ь': 'b', 'Ь': 'B',
+            'я': 'R', 'Я': 'R',
+
+            // --- ЛАТИНКА: Глибока заміна рідкісними гліфами ---
+            'b': 'ь',
+            'd': 'ԁ', // кириличне комі "д" (U+0501)
+            'h': 'һ', // кириличне "shha" (U+04BB)
+            'l': 'ӏ', // кирилична паличка (U+04CF)
+            'm': 'м',
+            'n': 'п', // візуальна подібність до n
+            'q': 'ԛ', // кирилична "qa" (U+051B)
+            'r': 'г', // візуальна схожість
+            't': 'т',
+            'u': 'и', // перевернута u
+            'v': 'ѵ', // іжиця (U+0475)
+            'w': 'ԝ', 'W': 'Ԝ', // кириличні "we" (U+051D / U+051C)
+            'z': 'з', 'Z': 'З'
+        };
+
+        // Стан додатку
+        let isCombat = false;
+        let activeSource = '1'; // Хто був джерелом останнього вводу: '1' чи '2'
+
+        const favicon = document.getElementById('favicon');
+		const defaultFavicon = favicon.getAttribute('href');
+		// Автоматично створює червону копію з твоїм же шляхом:
+		const combatFavicon = defaultFavicon.replace(/fill=['"][^'"]+['"]/, "fill='%23ef4444'");
+		const area1 = document.getElementById('area-1');
+        const area2 = document.getElementById('area-2');
+        const btnToggle = document.getElementById('btn-toggle');
+        const modeText = document.getElementById('mode-text');
+        const modeDesc = document.getElementById('mode-desc');
+        const count1 = document.getElementById('count-1');
+        const count2 = document.getElementById('count-2');
+
+        // Універсальний трансформер
+        function maskUniversal(text, map) {
+            let out = '';
+            for (const ch of text) {
+                out += map[ch] || ch;
+            }
+            return out;
+        }
+
+        function updateCounts() {
+            count1.textContent = area1.value.length;
+            count2.textContent = area2.value.length;
+        }
+
+        // Ввід у Буфер 1 -> трансформує у Буфер 2
+        area1.addEventListener('input', () => {
+            activeSource = '1';
+            const activeMap = isCombat ? COMBAT_MAP : STEALTH_MAP;
+            area2.value = maskUniversal(area1.value, activeMap);
+            updateCounts();
+        });
+
+        // Ввід у Буфер 2 -> трансформує у Буфер 1
+        area2.addEventListener('input', () => {
+            activeSource = '2';
+            const activeMap = isCombat ? COMBAT_MAP : STEALTH_MAP;
+            area1.value = maskUniversal(area2.value, activeMap);
+            updateCounts();
+        });
+
+        // Перемикання Бойового Режиму (миттєвий перерахунок без втрати тексту)
+        btnToggle.addEventListener('click', () => {
+            isCombat = !isCombat;
+            document.body.classList.toggle('combat-active', isCombat);
+            btnToggle.classList.toggle('active', isCombat);
+			// Змінює іконку вкладки на червону в бойовому режимі і повертає назад у звичайному
+			favicon.href = isCombat ? combatFavicon : defaultFavicon;
+
+            if (isCombat) {
+                modeText.textContent = '(УВІМК)';
+                modeDesc.textContent = 'Бойовий: грецька, leet, Unicode-розширення';
+            } else {
+                modeText.textContent = '(ВИМК)';
+                modeDesc.textContent = 'Стелс: 100% ідентичні символи';
+            }
+
+            const activeMap = isCombat ? COMBAT_MAP : STEALTH_MAP;
+
+            // Перераховуємо з того поля, куди вводили останнім
+            if (activeSource === '1') {
+                area2.value = maskUniversal(area1.value, activeMap);
+            } else {
+                area1.value = maskUniversal(area2.value, activeMap);
+            }
+            updateCounts();
+        });
+
+// Кнопки дій з підтримкою Android / file://
+        function bindButtons(btnCopyId, btnClearId, targetArea) {
+            const btnCopy = document.getElementById(btnCopyId);
+            const btnClear = document.getElementById(btnClearId);
+            let resetTimer;
+
+            btnCopy.addEventListener('click', () => {
+                if (!targetArea.value) return;
+
+                // Функція копіювання з фоллбеком для мобільних
+                const doCopy = () => {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        return navigator.clipboard.writeText(targetArea.value);
+                    } else {
+                        // Запасний варіант для Android та локальних файлів
+                        targetArea.focus();
+                        targetArea.select();
+                        targetArea.setSelectionRange(0, 99999); // Потрібно для мобільних браузерів
+                        const successful = document.execCommand('copy');
+                        targetArea.blur(); // прибираємо виділення і клавіатуру
+                        return successful ? Promise.resolve() : Promise.reject();
+                    }
+                };
+
+                doCopy().then(() => {
+                    btnCopy.textContent = 'Скопійовано!';
+                    btnCopy.classList.add('copied');
+                    clearTimeout(resetTimer);
+                    resetTimer = setTimeout(() => {
+                        btnCopy.textContent = 'Копіювати';
+                        btnCopy.classList.remove('copied');
+                    }, 1500);
+                }).catch(() => {
+                    btnCopy.textContent = 'Помилка';
+                    clearTimeout(resetTimer);
+                    resetTimer = setTimeout(() => {
+                        btnCopy.textContent = 'Копіювати';
+                    }, 1500);
+                });
+            });
+
+            btnClear.addEventListener('click', () => {
+                area1.value = '';
+                area2.value = '';
+                updateCounts();
+            });
+        }
+
+        bindButtons('copy-1', 'clear-1', area1);
+        bindButtons('copy-2', 'clear-2', area2);
+    </script>
+</body>
+</html>
